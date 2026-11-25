@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Active-to-Predictive Visual Recovery</title>
+<meta name="description" content="Active-to-Predictive Visual Recovery for Humanoid Manipulation under Persistent Camera Occlusion. A humanoid looks around, remembers the scene in 3D, and keeps predicting what lies behind a camera-attached occluder so that a frozen VLA can keep manipulating.">
+<meta property="og:title" content="Active-to-Predictive Visual Recovery for Humanoid Manipulation under Persistent Camera Occlusion">
+<meta property="og:description" content="Look around, remember in 3D, and predict what the occluded camera cannot see, so a frozen VLA keeps working.">
+<meta property="og:image" content="static/images/teaser.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="static/css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='28' fill='%23111620'/><circle cx='32' cy='32' r='15' fill='none' stroke='%235b9dff' stroke-width='5'/><path d='M18 40 Q26 22 40 20 Q34 34 22 44Z' fill='%23eb4d4b' opacity='.9'/></svg>">
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a class="nav-brand" href="#top">A2P&nbsp;Recovery</a>
+    <div class="nav-links">
+      <a href="#video">Video</a>
+      <a href="#method">Method</a>
+      <a href="#memory">3D Memory</a>
+      <a href="#real">Real World</a>
+      <a href="#sim">Simulation</a>
+      <a href="#bibtex">BibTeX</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============================== HERO ============================== -->
+<header class="hero" id="top">
+  <div class="hero-glow"></div>
+  <div class="hero-inner">
+    <div class="venue-chip">Under review &middot; CVPR 2027</div>
+    <h1 class="title">Active-to-Predictive Visual Recovery<br><span>for Humanoid Manipulation under Persistent Camera Occlusion</span></h1>
+    <p class="authors">Anonymous Authors</p>
+    <p class="affil">Paper ID 37165 &middot; author information withheld for double-blind review</p>
+    <div class="buttons">
+      <a class="btn disabled" title="Available after review"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 2v6h6" fill="none" stroke="currentColor" stroke-width="2"/></svg>Paper <em>soon</em></a>
+      <a class="btn disabled" title="Available after review"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z M8 9h8 M8 13h8 M8 17h5" fill="none" stroke="currentColor" stroke-width="2"/></svg>Supplementary <em>soon</em></a>
+      <a class="btn" href="#video"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>Video</a>
+      <a class="btn disabled" title="Available after review"><svg viewBox="0 0 24 24"><path d="M9 18l-6-6 6-6 M15 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>Code <em>soon</em></a>
+    </div>
+    <p class="tldr"><b>TL;DR</b> A Unitree G1 with a smudge stuck to its head camera <span class="hl-red">looks around</span>, <span class="hl-orange">reveals</span> what the smudge hides, <span class="hl-purple">remembers</span> the scene in 3D, and keeps <span class="hl-blue">predicting</span> the hidden region with an action-conditioned world model, so an unmodified VLA can keep manipulating.</p>
+  </div>
+  <figure class="teaser reveal">
+    <img src="static/images/teaser.jpg" alt="Teaser: a Unitree G1 with a camera-attached occluder; the direct VLA fails on three real tasks while the same frozen VLA succeeds with recovered visual inputs." loading="eager">
+    <figcaption>A camera-attached occluder persistently hides task-relevant regions. Fed the corrupted image, a VLA fails; with our recovered inputs, <b>the same frozen VLA</b> completes picking, pick-and-place, and pushing on a real Unitree G1.</figcaption>
+  </figure>
+</header>
+
+<main>
+
+<!-- ============================== STATS ============================== -->
+<section class="stats reveal">
+  <div class="stat">
+    <div class="stat-num"><span class="from">21.5</span><span class="arrow">&rarr;</span><span class="to" data-count="43.0">43.0</span><small>%</small></div>
+    <div class="stat-lab">average success over four simulated G1 tasks under persistent contamination</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num"><span class="from">5.6</span><span class="arrow">&rarr;</span><span class="to" data-count="58.3">58.3</span><small>%</small></div>
+    <div class="stat-lab">real-world <i>Pushing Cube</i> success (36 trials per method)</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num"><span class="from">0</span><span class="arrow">&rarr;</span><span class="to" data-count="66.7">66.7</span><small>%</small></div>
+    <div class="stat-lab">real-world <i>Picking Cube</i> when the target is <b>fully</b> hidden</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num"><span class="to">0</span><small>&nbsp;VLA updates</small></div>
+    <div class="stat-lab">the policy (GR00T N1.7) stays frozen; no corruption-specific retraining</div>
+  </div>
+</section>
+
+<!-- ============================== VIDEO ============================== -->
+<section class="section" id="video">
+  <h2 class="sec-title reveal">Overview Video</h2>
+  <div class="video-frame reveal">
+    <video id="overview" controls playsinline preload="metadata" poster="static/videos/overview_video.jpg">
+      <source src="static/videos/overview_video.mp4" type="video/mp4">
+    </video>
+  </div>
+  <p class="caption reveal">Real Unitree G1, pick-and-place with the cube occluded. Look around &rarr; reveal &rarr; remember in 3D &rarr; predict with DreamDojo &rarr; act with frozen GR00T. No sound.</p>
+</section>
+
+<!-- ============================== ABSTRACT ============================== -->
+<section class="section narrow" id="abstract">
+  <h2 class="sec-title reveal">Abstract</h2>
+  <p class="abstract reveal">
+    Humanoid vision-language-action (VLA) models rely on visual feedback for manipulation, yet persistent camera contamination can continuously obscure task-relevant information. Such occlusions present two challenges: recovering initially missing scene information and updating the recovered observations as robot hands and objects move during manipulation.
+    We propose an &ldquo;active-to-predictive visual recovery framework&rdquo; that addresses these challenges without corruption-specific VLA retraining. Our approach first exploits constrained humanoid waist movements to estimate camera-fixed contamination and acquire complementary viewpoints. The observations are integrated into a 3D scene memory and reprojected into the original camera viewpoint to initialize visual recovery. During manipulation, a corruption-conditioned, action-conditioned world model recurrently updates occluded regions using previously recovered observations, current partial camera evidence, and executed robot motions. The predicted content is combined with directly observed image regions and provided to a frozen VLA for closed-loop manipulation.
+    Experiments on simulated and real-world Unitree G1 manipulation tasks demonstrate the effectiveness of our framework under persistent camera contamination. Across four simulation tasks, our method improves average manipulation success from 21.5% to 43.0% compared with directly using corrupted observations, with additional improvements demonstrated on the real humanoid.
+  </p>
+</section>
+
+<!-- ============================== PROBLEM ============================== -->
+<section class="section split reveal" id="problem">
+  <div class="split-text">
+    <div class="kicker k-red">The problem</div>
+    <h2>A smudge that never moves out of the way</h2>
+    <p>The occluder is attached to the lens, so it moves <i>with</i> the camera. Unlike an object in front of the scene, simply re-looking does not help the policy: whatever the VLA sees at its training viewpoint stays hidden for the entire episode, and the hands and objects keep changing behind it.</p>
+    <ul class="ticks">
+      <li><b>Initially missing</b> &mdash; the target or the goal may be hidden before the robot even starts.</li>
+      <li><b>Continuously outdated</b> &mdash; as the arm moves, anything recovered once is stale a few steps later.</li>
+      <li><b>Viewpoint-sensitive policy</b> &mdash; manipulating from a new viewpoint breaks the VLA's training distribution.</li>
+    </ul>
+  </div>
+  <div class="split-media">
+    <video class="lazy" muted loop playsinline preload="none" poster="static/videos/problem.jpg" data-src="static/videos/problem.mp4"></video>
+  </div>
+</section>
+
+<!-- ============================== METHOD ============================== -->
+<section class="section" id="method">
+  <h2 class="sec-title reveal">Method</h2>
+  <p class="sec-sub reveal">Four stages: two that <b>actively</b> gather what the occluder hides before manipulation, and one that keeps <b>predicting</b> it during manipulation.</p>
+  <figure class="figure-card zoomable reveal">
+    <img src="static/images/framework.jpg" alt="Framework overview with four stages: Look around, Reveal, Remember, Act." loading="lazy">
+    <figcaption>Overview. (1) Waist-yaw observations vote for a screen-fixed contamination mask <i>M</i>. (2) An area-based next-best-view planner selects waist poses that reveal the occluded region. (3) Depth Anything 3 and robot kinematics fuse the views into a 3D scene memory, reprojected into the home view as <i>I</i><sup>geo</sup>. (4) A corruption- and action-conditioned DreamDojo recurrently updates the occluded region for a frozen VLA. <span class="hint">Click to enlarge.</span></figcaption>
+  </figure>
+
+  <div class="steps">
+    <article class="step reveal" style="--c: var(--red)">
+      <div class="step-text">
+        <div class="step-num">1</div>
+        <h3>Look around <span>&mdash; estimate the screen-fixed contamination</span></h3>
+        <p>The robot sweeps its waist yaw by about &plusmn;0.3&nbsp;rad and returns home (6.6&nbsp;s). The scene slides across the image, but the contamination stays put. SAM&nbsp;2 proposes segments in each frame; segments that persist at the same image location across frames with different yaw vote for the mask <i>M</i>. No contamination-specific segmentation model is trained.</p>
+      </div>
+      <div class="step-media"><video class="lazy" muted loop playsinline preload="none" poster="static/videos/step1_lookaround.jpg" data-src="static/videos/step1_lookaround.mp4"></video></div>
+    </article>
+
+    <article class="step reveal" style="--c: var(--orange)">
+      <div class="step-text">
+        <div class="step-num">2</div>
+        <h3>Reveal <span>&mdash; actively acquire views</span></h3>
+        <p>An area-based next-best-view planner scores 204 candidate waist poses (yaw &times; roll &times; pitch) by how much of the initially hidden area each would newly expose, discounted by motion time. It uses no object detector and no training, and acquires at most four views.</p>
+        <p class="note">Same recovery pipeline, different planners: NBV-Area reaches the highest success (48%) with 2.36 views on average, versus 36&ndash;42% for fixed, random, target-driven, and learned (PPO) selection.</p>
+      </div>
+      <div class="step-media"><video class="lazy" muted loop playsinline preload="none" poster="static/videos/step2_views.jpg" data-src="static/videos/step2_views.mp4"></video></div>
+    </article>
+
+    <article class="step reveal" style="--c: var(--purple)">
+      <div class="step-text">
+        <div class="step-num">3</div>
+        <h3>Remember <span>&mdash; build a canonical scene memory</span></h3>
+        <p>Every look-around frame is lifted to 3D with Depth Anything 3, placed with forward-kinematics camera poses, and stripped of contaminated and robot pixels. Reprojecting this memory into the original home camera recovers what was behind the occluder &mdash; the robot then returns home, so the VLA keeps its training viewpoint. <a href="#memory">Explore the memory in 3D &darr;</a></p>
+      </div>
+      <div class="step-media"><video class="lazy" muted loop playsinline preload="none" poster="static/videos/step3_memory.jpg" data-src="static/videos/step3_memory.mp4"></video></div>
+    </article>
+
+    <article class="step reveal" style="--c: var(--blue)">
+      <div class="step-text">
+        <div class="step-num">4</div>
+        <h3>Act <span>&mdash; continuously update the observation</span></h3>
+        <p>A geometric snapshot goes stale as soon as the hand moves. We adapt the DreamDojo world model to be <b>corruption-conditioned</b>: at every policy query it combines the previous recovered image, the current partial camera image, the contamination mask, a rendering of the arm, and the executed joint trajectory to predict the occluded region. The prediction is fused with the directly visible pixels and handed to the frozen VLA.</p>
+      </div>
+      <div class="step-media"><video class="lazy" muted loop playsinline preload="none" poster="static/videos/step4_dreamdojo.jpg" data-src="static/videos/step4_dreamdojo.mp4"></video></div>
+    </article>
+  </div>
+
+  <div class="two-col reveal">
+    <figure class="figure-card zoomable">
+      <img src="static/images/dreamdojo_arch.jpg" alt="Architecture of the corruption-conditioned DreamDojo." loading="lazy">
+      <figcaption>Corruption-conditioned DreamDojo. Previous visual priors and current partial observations condition the generator together with arm rendering and executed joints.</figcaption>
+    </figure>
+    <figure class="figure-card zoomable">
+      <img src="static/images/acquisition.jpg" alt="Contamination estimation and active view acquisition." loading="lazy">
+      <figcaption>Contamination estimation from waist-yaw observations and the views selected by the area-based planner.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================== 3D MEMORY ============================== -->
+<section class="section" id="memory">
+  <h2 class="sec-title reveal">Interactive 3D Scene Memory</h2>
+  <p class="sec-sub reveal">The actual memory built on the real robot for pick-and-place with both the cube and the plate occluded (the run shown in the paper's Fig.&nbsp;5). Drag to orbit, scroll to zoom, and use the slider to add the look-around frames one at a time.</p>
+  <div class="viewer reveal" id="viewer">
+    <canvas id="pc-canvas"></canvas>
+    <div class="viewer-loading" id="pc-loading"><div class="spinner"></div>Loading 300k points&hellip;</div>
+    <div class="viewer-legend">
+      <span><i style="background:#ff5a5a"></i>home camera</span>
+      <span><i style="background:#5ad2ff"></i>earlier frames</span>
+      <span><i style="background:#ffd24a"></i>newest frame</span>
+    </div>
+    <div class="viewer-controls">
+      <button id="pc-play" class="vbtn" aria-label="Play">&#9654;</button>
+      <input id="pc-slider" type="range" min="1" max="16" value="16" aria-label="Number of frames">
+      <span id="pc-label" class="mono">16 / 16 frames</span>
+      <button id="pc-home" class="vbtn small" title="View from the home camera">home view</button>
+      <button id="pc-orbit" class="vbtn small" title="Orbit view">orbit</button>
+    </div>
+  </div>
+  <figure class="figure-card zoomable reveal">
+    <img src="static/images/memory.jpg" alt="Progressive 3D scene memory accumulation and reprojection to the canonical view." loading="lazy">
+    <figcaption>Progressive memory accumulation (top: points, bottom: RGB and estimated depth) and the reprojection into the canonical home view, which initializes visual recovery.</figcaption>
+  </figure>
+</section>
+
+<!-- ============================== REAL WORLD ============================== -->
+<section class="section" id="real">
+  <h2 class="sec-title reveal">Real-World Results</h2>
+  <p class="sec-sub reveal">Unitree G1, head-mounted camera with a physical occluder, frozen GR00T N1.7. Left: the policy driven directly by the occluded camera. Right: the same policy with our recovered inputs. Insets show what each policy is working from. Playback 2&times;.</p>
+
+  <div class="tabs reveal" role="tablist" id="task-tabs"></div>
+  <div class="pills reveal" id="cond-pills"></div>
+
+  <div class="compare reveal" id="compare">
+    <div class="cmp-card baseline" id="cmp-base">
+      <div class="cmp-head"><span class="badge bad">&#10007;</span>Direct GR00T <small>occluded camera as input</small></div>
+      <div class="cmp-video"><video id="vid-base" muted loop playsinline preload="none"></video><div class="inset-tag">policy input</div></div>
+    </div>
+    <div class="cmp-card ours" id="cmp-ours">
+      <div class="cmp-head"><span class="badge good">&#10003;</span>Ours + frozen GR00T <small>recovered input</small></div>
+      <div class="cmp-video"><video id="vid-ours" muted loop playsinline preload="none"></video><div class="inset-tag">recovered view</div></div>
+    </div>
+  </div>
+  <div class="cond-info reveal" id="cond-info"></div>
+
+  <div class="robot-view reveal">
+    <div class="rv-head">
+      <h3>What the robot sees</h3>
+      <div class="rv-labels"><span>Head camera (occluded)</span><span>Recovered view (world-model prediction)</span></div>
+    </div>
+    <video id="vid-view" muted loop playsinline preload="none"></video>
+  </div>
+
+  <div class="chart-block reveal">
+    <div class="chart-head">
+      <h3>Success rate under each occlusion condition</h3>
+      <div class="legend"><span><i class="sw base"></i>Direct GR00T (occluded)</span><span><i class="sw ours"></i>Ours + frozen GR00T</span><span><i class="sw clean"></i>clean-camera reference</span></div>
+    </div>
+    <div class="chart" id="chart-real"></div>
+    <p class="chart-note">12 trials per condition (4 masks &times; 3); 36 clean trials per task. Picking Cube conditions describe target visibility; the others describe which task-relevant region (object, goal, or both) is hidden.</p>
+    <details class="table-view"><summary>Show as table</summary><div id="table-real"></div></details>
+  </div>
+</section>
+
+<!-- ============================== UPDATING ============================== -->
+<section class="section" id="updating">
+  <h2 class="sec-title reveal">Recovery Keeps Up with the Robot</h2>
+  <p class="sec-sub reveal">Starting from the geometric initialization, the world model keeps the hidden region in sync with the moving hand and objects. Insets show the contaminated camera image at the same step.</p>
+  <figure class="figure-card zoomable reveal">
+    <img src="static/images/updating.jpg" alt="Recurrent visual updating during manipulation in real and simulated tasks." loading="lazy">
+    <figcaption>Recurrent visual updating in (a) real-world and (b) simulated tasks.</figcaption>
+  </figure>
+</section>
+
+<!-- ============================== SIMULATION ============================== -->
+<section class="section" id="sim">
+  <h2 class="sec-title reveal">Simulation</h2>
+  <p class="sec-sub reveal">Four simulated Unitree G1 tasks with random persistent contamination masks, 50 episodes per task. All methods use the same frozen GR00T policy.</p>
+
+  <div class="chart-block reveal">
+    <div class="chart-head">
+      <h3>Manipulation success under persistent contamination</h3>
+      <div class="legend"><span><i class="sw base"></i>Direct GR00T (occluded)</span><span><i class="sw ours"></i>Ours + frozen GR00T</span><span><i class="sw clean"></i>clean-camera reference</span></div>
+    </div>
+    <div class="chart" id="chart-sim"></div>
+    <p class="chart-note">50 episodes per task. Further baselines (image inpainting, active perception, multi-view) are compared in the paper.</p>
+    <details class="table-view"><summary>Show as table</summary><div id="table-sim"></div></details>
+  </div>
+
+  <figure class="figure-card zoomable reveal">
+    <img src="static/images/manipulation.jpg" alt="Execution sequences with recovered inputs versus direct GR00T failures, real and simulated." loading="lazy">
+    <figcaption>Executions with recovered inputs (insets: recovered egocentric views) versus direct GR00T failures, on the real robot (a) and in simulation (b).</figcaption>
+  </figure>
+
+  <div class="two-col tables reveal">
+    <div class="tcard">
+      <h3>Visual recovery quality</h3>
+      <p class="tsub">Masked region / full image vs. clean ground truth on held-out simulation episodes.</p>
+      <table class="rtable">
+        <thead><tr><th>Method</th><th>PSNR&thinsp;&uarr;</th><th>SSIM&thinsp;&uarr;</th><th>LPIPS&thinsp;&darr;</th></tr></thead>
+        <tbody>
+          <tr><td>BrushNet</td><td>22.73 / 26.14</td><td>0.686 / 0.874</td><td>0.216 / 0.111</td></tr>
+          <tr><td>RAD</td><td>19.99 / 24.26</td><td>0.658 / 0.869</td><td>0.227 / 0.113</td></tr>
+          <tr><td>Moebius</td><td>23.77 / 26.78</td><td><b>0.729</b> / <b>0.891</b></td><td>0.233 / 0.115</td></tr>
+          <tr><td>Ours (w/o 3D)</td><td>25.16 / 27.33</td><td>0.712 / 0.815</td><td>0.171 / 0.057</td></tr>
+          <tr class="me"><td>Ours</td><td><b>25.84</b> / <b>27.81</b></td><td>0.725 / 0.820</td><td><b>0.162</b> / <b>0.052</b></td></tr>
+          <tr class="oracle"><td>Ours (GT prior, oracle)</td><td>27.66 / 29.01</td><td>0.757 / 0.833</td><td>0.133 / 0.036</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="tcard">
+      <h3>Which views to acquire?</h3>
+      <p class="tsub">Same recovery pipeline and 204 candidate waist poses; at most four views. SR with 95% CI.</p>
+      <table class="rtable">
+        <thead><tr><th>Planner</th><th>SR (%)</th><th>Views</th><th>Time (s)</th></tr></thead>
+        <tbody>
+          <tr><td>Fixed 2</td><td>38 <span class="ci">(26&ndash;52)</span></td><td>2.00</td><td>15.6</td></tr>
+          <tr><td>Fixed 4</td><td>36 <span class="ci">(24&ndash;50)</span></td><td>4.00</td><td>18.4</td></tr>
+          <tr><td>Random 4</td><td>40 <span class="ci">(28&ndash;54)</span></td><td>4.00</td><td>17.9</td></tr>
+          <tr><td>NBV-Target</td><td>42 <span class="ci">(29&ndash;56)</span></td><td>2.20</td><td>14.4</td></tr>
+          <tr><td>PPO</td><td>38 <span class="ci">(26&ndash;52)</span></td><td>3.30</td><td>16.6</td></tr>
+          <tr class="me"><td>NBV-Area (ours)</td><td><b>48</b> <span class="ci">(35&ndash;61)</span></td><td>2.36</td><td>15.0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== BIBTEX ============================== -->
+<section class="section narrow" id="bibtex">
+  <h2 class="sec-title reveal">BibTeX</h2>
+  <div class="bib reveal">
+    <button class="copy" id="copy-bib">Copy</button>
+<pre id="bib-text">@inproceedings{anonymous2027activepredictive,
+  title     = {Active-to-Predictive Visual Recovery for Humanoid
+               Manipulation under Persistent Camera Occlusion},
+  author    = {Anonymous},
+  booktitle = {Under review},
+  year      = {2027}
+}</pre>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <p>Anonymous project page for double-blind review. Videos are real robot recordings unless marked as simulation.</p>
+</footer>
+
+<div class="lightbox" id="lightbox" aria-hidden="true"><img alt=""><button aria-label="Close">&times;</button></div>
+
+<script src="static/js/main.js"></script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module" src="static/js/memory.js"></script>
+</body>
+</html>
